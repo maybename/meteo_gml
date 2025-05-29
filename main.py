@@ -3,7 +3,7 @@ import _thread, gc, log, time
 print(time.ticks_ms())
 from sensors import *
 print(time.ticks_ms())
-from tcp4clientX import TCP4client
+from tcp4client import TCP4client
 from enc28j60 import Ntw
 print(time.ticks_ms()) 
 #from uDnsClient import DnsClientNtw, DNS_RCODE_NOERROR
@@ -106,7 +106,11 @@ def send_data(value:float, sensor_type:str):    #sends data to server
         print("ethernet disabled")
         return
     data = '{"type":"' + sensor_type + '","value":' + str(value) + '}'  #constructing json
-    tcp.send("POST {} HTTP/1.1" "\r\n"          #constructing http header
+
+    s = tcp.new_connection(tgt_ip=server, tgt_port=port)  #creating new connection
+    while s == -1:  #waiting for connection to be established
+        s = tcp.new_connection(tgt_ip=server, tgt_port=port)
+    s.send("POST {} HTTP/1.1" "\r\n"          #constructing http header
         "Host: student.gml.cz" "\r\n"
         "Content-Length: {}" "\r\n"
         #"Content-Type: application/json" "\r\n" 
@@ -119,16 +123,28 @@ def ether_on_second_core():     #automaticly sends data when available, runs on 
             ntw.rxAllPkt()
             if ntw.configIp4Done:
                 tcp.loop()
-            if not tcp.seassion == None:
-                for response in tcp.seassion.responses:
-                    if "ERR" in response:
-                        print(str(response))
-                        l.write("\n", "Error from server", "\n-----------------\n", response, "\n------------------")
-                    tcp.seassion.responses.remove(response)
+
+            for s in tcp.seassions:
+                if s == None:
+                    continue
+                #print("\t[TCP] Session: ", s.state, s.messages)
+                if not s.responses == []:
+                    for response in s.responses:
+                        if "ERR" in response:
+                            print(str(response))
+                            l.write("\n", "Error from server", "\n-----------------\n", response, "\n------------------")
+                    s.responses.clear()
+            gc.collect()  #collects garbage
+        time.sleep(0.1)  #sleep to prevent high cpu usage            
 
 def callback(timer):    #callback function for timer
     global measure
     measure = True
+
+
+
+
+print("Mateo started")
 
 
 l = log.log("mateo-log.txt")    #setups logging
@@ -137,47 +153,45 @@ if ethernet:    #inits ethernet
     ntw = Ntw.Ntw(spi0, Pin(17))
     ntw.setIPv4(ip, mask, gw_ip)
     tcp = TCP4client(ntw)
-    seassion1 = tcp.new_connection(tgt_ip=server, timeout=10, tgt_port=port)
-
-if __name__ == "__main__":
-    print("Mateo started")
-    while True:
-        try:
-            led = Pin("LED", Pin.OUT)
-            led.on()    #turns led on on startup
-            main_timer = Timer(-1, mode=Timer.PERIODIC, period=3*60*1000, callback=callback)
     
-            try:
-                _thread.start_new_thread(ether_on_second_core, ())  #starts loop on second core for ethernet
-            except Exception as e:
-                print("Error starting ethernet thread:", e)
-                l.write("Error starting ethernet thread:", str(e), "\n")
+while True:
+    try:
+        led = Pin("LED", Pin.OUT)
+        led.on()    #turns led on on startup
+        main_timer = Timer(-1, mode=Timer.PERIODIC, period=3*60*1000, callback=callback)
 
-            #checks if all functions from file sensors.py in list sensors are valid, if not they will be removed
-            k = 0
-            while k < (len(sensors)):
-                print(sensors[k])
-                if not len(sensors[k]) == 3:
-                    sensors.pop(k)
-                else:
-                    sensors[k].append(False)    
-                    k += 1
-            init_modules()  #runs all init functions in list sensors
-            
-            gc.collect()  #collects garbage
-            print('free: ', gc.mem_free(), '  used: ', gc.mem_alloc())
-
-            while True:
-                if measure:
-                    print('processing')
-                    process()
-                    gc.collect()
-                    init_modules()
-                    gc.collect()
-                    print('free: ', gc.mem_free(), '  used: ', gc.mem_alloc())
-                
+        try:
+            _thread.start_new_thread(ether_on_second_core, ())  #starts loop on second core for ethernet
         except Exception as e:
-            if e == KeyboardInterrupt:
-                break
-            print("global Error:", e)
-            l.write("global Error: ", str(e), "\n")
+            print("Error starting ethernet thread:", e)
+            l.write("Error starting ethernet thread:", str(e), "\n")
+
+        #checks if all functions from file sensors.py in list sensors are valid, if not they will be removed
+        k = 0
+        while k < (len(sensors)):
+            print(sensors[k])
+            if not len(sensors[k]) == 3:
+                sensors.pop(k)
+            else:
+                sensors[k].append(False)    
+                k += 1
+        init_modules()  #runs all init functions in list sensors
+        
+        gc.collect()  #collects garbage
+        print('free: ', gc.mem_free(), '  used: ', gc.mem_alloc())
+
+        while True:
+            if measure:
+                print('processing')
+                process()
+                gc.collect()
+                init_modules()
+                gc.collect()
+                print('free: ', gc.mem_free(), '  used: ', gc.mem_alloc())
+            time.sleep(1)
+
+    except Exception as e:
+        if e == KeyboardInterrupt:
+            break
+        print("global Error:", e)
+        l.write("global Error: ", str(e), "\n")

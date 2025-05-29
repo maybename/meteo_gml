@@ -12,7 +12,7 @@ class TCP4client:
         
         if self.check_module() == -1:
             self.module = False
-        
+        return -1
     class Seassion:
         def __init__(self, port, tgt_ip, tgt_port, timeout = 30, window_size = 512):
             self.port = port    
@@ -191,66 +191,9 @@ class TCP4client:
             
             seassion._recived.remove(pkt)
                                  
-                                 
-            '''
-                if self.state == 0 or self.state == 1:
-                    if pkt.tcp_flags & 0b1 == 0b1:
-                        self.sendTCP('',0b10001)
-                        self.state = 4
-
-                    if pkt.tcp_flags & 0b10000 == 0b10000 and pkt.tcp_ack_num > self.sended[2]:
-                        self.messages.remove(self.sended[0])
-                        self.state = 1
-                    
-                elif pkt.tcp_flags & 0b10 == 0b10 and (self.state == 2 or self.state == -1):
-                    if pkt.tcp_flags == 0b10010:
-                        self.sendTCP('',0b10000) #acknowleging packet
-                        self.seq_num += 1
-                        self.state = 1
-                    elif pkt.tcp_flags == 0b10:
-                        self.sendTCP('',0b10010)
-                    elif pkt.tcp_flags == 0b10000:
-                        self.state = 1
-                                    
-                elif self.state == 3 and pkt.tcp_flags & 0b10000 == 0b10000:
-                    if pkt.tcp_flags & 0b1 == 0b1:
-                        self.sendTCP('',0b10000)
-                        self.state = -1
-                    else:
-                        self.state = 4
-                elif self.state == 4:
-                    self.sendTCP('',0b10000)    #acknowleging packet
-                    if pkt.tcp_flags & 0b1 == 0b1:
-                        self.state = -1
-
-                
-                if pkt.tcp_flags & 0b1000 == 0b1000:
-                    self.responses.append(pkt.tcp_data)
-                    
-            if self.ack_num > 4294967295:
-                self.ack_num -= 4294967295
-            
-            self._recived.remove(pkt)
-            '''
     def generate_seq_num(self):
         return(random.randint(0,0xFFFFFFF))
-    '''
-    def reset_variables(self):
-            self.to_send = []
-            
-            self.messages = []
-            self.responses = []
 
-            self.seq_num = 0 & 0xFFFFFFFF
-            self.ack_num = 0 & 0xFFFFFFFF
-            
-            self._recived = []
-            self.state = -1   #-1 - offline, 1 - starting, 2 - stoping, 3 - half closed, 4 - server closing, 5 - restart_timeout
-            self.timer = 0
-                    
-            self.last_ack_num = 0 & 0xFFFFFFFF
-            self.last_seq_num = 0 & 0xFFFFFFFF
-    '''
     def insert_message(self, seassion, seq_num):
         message = seassion.messages.pop(0)
         seassion.to_send.append([seq_num, message, 0b11000])
@@ -275,7 +218,7 @@ class TCP4client:
                     if self.seassion.port > 1100:
                         self.seassion.port = 1000
                     self.ntw.registerTcp4Callback(self.seassion.port, self.seassion)
-                        
+                
 
 if __name__ == '__main__':
     nicSpi = SPI(0, baudrate=10000000, sck=Pin(18), mosi=Pin(19), miso=Pin(16))

@@ -24,6 +24,7 @@ class TCP4client:
             self.tgt_ip = tgt_ip
             self.tgt_port = tgt_port
 
+            self.keep = keep
             self.timeout = timeout
             self.window_size = window_size #curently work in process
 
@@ -31,23 +32,30 @@ class TCP4client:
 
 
             self.messages = []
+            self.reset()
+        
+        def __call__(self, pkt):
+            if pkt.tcp_seq_num >= self.last_seq_num or pkt.tcp_seq_num == 0:
+                data = bytes(pkt.tcp_data).decode('utf-8')
+                print('\t[TCPclient] Recived: Port {0} -> {1}, seq: {2}, ack: {3}, flags: {4}, data: {5}'.format(pkt.tcp_srcPort, pkt.tcp_dstPort, pkt.tcp_seq_num, pkt.tcp_ack_num, pkt.tcp_flags, data))
+                self.last_seq_num = pkt.tcp_seq_num
+                self._recived.append(pkt)
+        
+        def reset(self):
+            self.to_send = []
+            self.sended = None
+            
             self.responses = []
 
             self.seq_num = random.randint(0,0xFFFFFFF)
             self.ack_num = 0 & 0xFFFFFFFF
             
             self._recived = []
-            self.state = -1     #-1 - offline,0 - sending data 1 - starting, 2 - stoping, 3 - half closed, 4 - server closing, 5 - restart_timeout
+            self.state = -1     #-1 - offline,0 - available 1 - starting, 2 - stoping, 3 - half closed, 4 - server closing, 5 - restart_timeout
             self.timer = 0
                     
             self.last_ack_num = 0 & 0xFFFFFFFF
             self.last_seq_num = 0 & 0xFFFFFFFF
-        
-        def __call__(self, pkt):
-            if pkt.tcp_seq_num >= self.last_seq_num or pkt.tcp_seq_num == 0:
-                data = bytes(pkt.tcp_data).decode('utf-8')
-                print('\t[TCPclient] Recived: Port {0} -> {1}, seq: {2}, ack: {3}, flags: {4}, data: {5}'.format(pkt.tcp_srcPort, pkt.tcp_dstPort, pkt.tcp_seq_num, pkt.tcp_ack_num, pkt.tcp_flags, data))
-                self._recived.append(pkt)
         
         def dnsCallback(self, hostname, status, addr, ttl):
             if DNS_RCODE_NOERROR != status or addr is None:
@@ -57,14 +65,14 @@ class TCP4client:
             self.tgt_ip = addr
             print(f'[DNS] {hostname} at {addr[0]}.{addr[1]}.{addr[2]}.{addr[3]}')
                 
-        def send(self, message):
-            if not type(message) == list:
+        def send(self, message:str | list):
+            print(type(message))
+            if type(message) == str:
                 messages = [message]
-            else:
+            elif type(message) == list:
                 messages = message
-                
-            for m in messages:
-                self.messages.append(m)
+            
+            self.messages += messages
 
     def sendTCP(self, seassion, message, flags):
             if self.ntw.getArpEntry(self.ntw.gwIp4Addr) == None and self.ntw.getArpEntry(seassion.tgt_ip) == None:
@@ -83,16 +91,16 @@ class TCP4client:
     
     
     
-    def new_connection(self, domain = '', tgt_port = 80, tgt_ip = []):
+    def new_connection(self, domain = '', tgt_port = 80, tgt_ip = [], timeout = 10, window_size = 512, keep = False, dns_client = None):
         if not self.module:
             return -1
         
         port = self.available_ports.pop(random.randint(0, len(self.available_ports)))
         
-        seassion = self.Seassion(port, tgt_ip, tgt_port)    
-        
-        if domain != '' and not dns_client == None:
-            dns_client.resolve_host_name(domain, callback=seassion.dnsCallback)
+        seassion = self.Seassion(port, tgt_ip, tgt_port, timeout, window_size, keep)    
+
+        if domain != '' and not self.dns_client == None:
+            self.dns_client.resolve_host_name(domain, callback=seassion.dnsCallback)
 
         elif tgt_ip == []:           
             return -1
@@ -145,7 +153,8 @@ class TCP4client:
             print("ethernet module is not working")
             return -1
         else:
-            print("ethernet module OK")
+            #print("ethernet module OK")
+            return 0
         
     
 
@@ -162,7 +171,7 @@ class TCP4client:
                 
                 if pkt.tcp_flags & 0b10000 == 0b10000:
                     seassion.seq_num = pkt.tcp_ack_num
-                    seassion.ack_num = pkt.tcp_seq_num + len(pkt.tcp_data) + (len(pkt.tcp_data) == 0)
+                    seassion.ack_num = pkt.tcp_seq_num + len(pkt.tcp_data) + (len(pkt.tcp_data) == 0 and not pkt.tcp_flags == 0b10000)
                     
                     seassion.ack_num = seassion.ack_num & 0xFFFFFFFF
                         
@@ -176,11 +185,11 @@ class TCP4client:
                     seassion.responses.append(pkt.tcp_data)
                 
                 if pkt.tcp_flags & 0b10 == 0b10:
-                    print("syn flag")
+                    #print("syn flag")
                     seassion.state = 0
                 
                 if pkt.tcp_flags & 0b1 == 0b1:
-                    print('fin flag')
+                    #print('fin flag')
                     if seassion.state == 0:
                         seassion.to_send.append([seassion.seq_num, '', 0b10001])
                         seassion.state = 4
@@ -210,7 +219,7 @@ class TCP4client:
     def insert_message(self, seassion, seq_num):
         message = seassion.messages.pop(0)
         seassion.to_send.append([seq_num, message, 0b11000])
-        seq_num = seassion.to_send[-1][0] + len(seassion.to_send[-1][1]) + (len(seassion.to_send[-1][1]) == 0)
+        #seq_num = seassion.to_send[-1][0] + len(seassion.to_send[-1][1]) + (len(seassion.to_send[-1][1]) == 0)
 
     def loop(self):
         for seassion in self.seassions:
@@ -220,14 +229,15 @@ class TCP4client:
                 seassion.state = 1
                 
             if seassion.timer + seassion.timeout <= time.time() and not seassion.state == -1:
-                if not seassion.state == 5:
+                if not seassion.state == 5 and not seassion.sended == None:
                         print('timeout!!!', time.time())
                         seassion.seq_num = seassion.sended[2]
                         self.sendTCP(seassion, seassion.sended[0], seassion.sended[1])
                         
                 elif not seassion.keep and len(seassion.messages) == 0:
                     self.terminate_connection(seassion)
-
+        return [s.state for s in self.seassions]  #returning seassions states for debugging purposes
+    
 if __name__ == '__main__':
     nicSpi = SPI(0, baudrate=10000000, sck=Pin(18), mosi=Pin(19), miso=Pin(16))
     nicCsPin = 17
@@ -255,14 +265,14 @@ if __name__ == '__main__':
         print("Failed to create TCP session")
         exit(1)
         
-    seassion1.send("POST /humidity/post/ HTTP/1.1\r\n"
+    seassion1.send("POST /skript.php HTTP/1.1\r\n"
                     "Host: student.gml.cz\r\n"
                     "Content-Type: application/x-www-form-urlencoded\r\n"
                     "Content-Length: 13\r\n"
                     "Connection: close\r\n"
                     "\r\n"
                     "value=100")
-    
+    print(seassion1.messages)
     print("looping")
     while True:
         ntw.rxAllPkt()
