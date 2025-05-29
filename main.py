@@ -1,8 +1,11 @@
 from machine import Timer, Pin
-import _thread, gc, log
+import _thread, gc, log, time
+print(time.ticks_ms())
 from sensors import *
+print(time.ticks_ms())
 from tcp4clientX import TCP4client
-from enc28j60 import Ntw 
+from enc28j60 import Ntw
+print(time.ticks_ms()) 
 #from uDnsClient import DnsClientNtw, DNS_RCODE_NOERROR
 
 ###################################################################################
@@ -106,7 +109,7 @@ def send_data(value:float, sensor_type:str):    #sends data to server
     tcp.send("POST {} HTTP/1.1" "\r\n"          #constructing http header
         "Host: student.gml.cz" "\r\n"
         "Content-Length: {}" "\r\n"
-        #"Content-Type: application/json" "\r\n"
+        #"Content-Type: application/json" "\r\n" 
         "Connection-Type: closed""\r\n""\r\n"
         "{}".format(path, len(data), data))
     
@@ -137,6 +140,7 @@ if ethernet:    #inits ethernet
     seassion1 = tcp.new_connection(tgt_ip=server, timeout=10, tgt_port=port)
 
 if __name__ == "__main__":
+    print("Mateo started")
     while True:
         try:
             led = Pin("LED", Pin.OUT)

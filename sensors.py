@@ -38,7 +38,7 @@ class interrupts:
 
 def PMS_init():
     global PMS
-    PMS=PMS5003(UART(0, baudrate=9600, tx=Pin(12), rx=Pin(13), timeout=20000))
+    PMS=PMS5003(UART(0, baudrate=9600, tx=Pin(12), rx=Pin(13), timeout=20))
 def PMS_read():
     return PMS.read()
 

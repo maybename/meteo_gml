@@ -151,10 +151,7 @@ class TCP4client:
                     seassion.seq_num = pkt.tcp_ack_num
                     seassion.ack_num = pkt.tcp_seq_num + len(pkt.tcp_data) + (len(pkt.tcp_data) == 0 and not pkt.tcp_flags == 0b10000)
                     
-                    if seassion.ack_num > 4294967295: #ack num cannot be higher than this number
-                        seassion.ack_num -= 4294967295
-                    
-                    
+                    seassion.ack_num = seassion.ack_num & 0xFFFFFFFF
                         
                     if seassion.state == 4: #When server starts closing and aknowleged clients fin flag
                         seassion.state = 5      #closed connection

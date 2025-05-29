@@ -164,10 +164,7 @@ class TCP4client:
                     seassion.seq_num = pkt.tcp_ack_num
                     seassion.ack_num = pkt.tcp_seq_num + len(pkt.tcp_data) + (len(pkt.tcp_data) == 0)
                     
-                    if seassion.ack_num > 0xFFFFFFFF: #ack num cannot be higher than this number
-                        seassion.ack_num -= 
-                    
-                    
+                    seassion.ack_num = seassion.ack_num & 0xFFFFFFFF
                         
                     if seassion.state == 4: #When server starts closing and aknowleged clients fin flag
                         seassion.state = 5      #closed connection
@@ -206,67 +203,10 @@ class TCP4client:
                 #########################################
             
             seassion._recived.remove(pkt)
-                                 
-                                 
-            '''
-                if self.state == 0 or self.state == 1:
-                    if pkt.tcp_flags & 0b1 == 0b1:
-                        self.sendTCP('',0b10001)
-                        self.state = 4
-
-                    if pkt.tcp_flags & 0b10000 == 0b10000 and pkt.tcp_ack_num > self.sended[2]:
-                        self.messages.remove(self.sended[0])
-                        self.state = 1
-                    
-                elif pkt.tcp_flags & 0b10 == 0b10 and (self.state == 2 or self.state == -1):
-                    if pkt.tcp_flags == 0b10010:
-                        self.sendTCP('',0b10000) #acknowleging packet
-                        self.seq_num += 1
-                        self.state = 1
-                    elif pkt.tcp_flags == 0b10:
-                        self.sendTCP('',0b10010)
-                    elif pkt.tcp_flags == 0b10000:
-                        self.state = 1
-                                    
-                elif self.state == 3 and pkt.tcp_flags & 0b10000 == 0b10000:
-                    if pkt.tcp_flags & 0b1 == 0b1:
-                        self.sendTCP('',0b10000)
-                        self.state = -1
-                    else:
-                        self.state = 4
-                elif self.state == 4:
-                    self.sendTCP('',0b10000)    #acknowleging packet
-                    if pkt.tcp_flags & 0b1 == 0b1:
-                        self.state = -1
-
-                
-                if pkt.tcp_flags & 0b1000 == 0b1000:
-                    self.responses.append(pkt.tcp_data)
-                    
-            if self.ack_num > 4294967295:
-                self.ack_num -= 4294967295
-            
-            self._recived.remove(pkt)
-            '''
+                          
     def generate_seq_num(self):
         return(random.randint(0,0xFFFFFFF))
-    '''
-    def reset_variables(self):
-            self.to_send = []
-            
-            self.messages = []
-            self.responses = []
-
-            self.seq_num = 0 & 0xFFFFFFFF
-            self.ack_num = 0 & 0xFFFFFFFF
-            
-            self._recived = []
-            self.state = -1   #-1 - offline, 1 - starting, 2 - stoping, 3 - half closed, 4 - server closing, 5 - restart_timeout
-            self.timer = 0
-                    
-            self.last_ack_num = 0 & 0xFFFFFFFF
-            self.last_seq_num = 0 & 0xFFFFFFFF
-    '''
+    
     def insert_message(self, seassion, seq_num):
         message = seassion.messages.pop(0)
         seassion.to_send.append([seq_num, message, 0b11000])
@@ -311,6 +251,10 @@ if __name__ == '__main__':
     tcp = TCP4client(ntw, dns_client=dns_client)
     
     seassion1 = tcp.new_connection(tgt_ip=server, tgt_port=target_port)
+    if seassion1 == -1:
+        print("Failed to create TCP session")
+        exit(1)
+        
     seassion1.send("POST /humidity/post/ HTTP/1.1\r\n"
                     "Host: student.gml.cz\r\n"
                     "Content-Type: application/x-www-form-urlencoded\r\n"
