@@ -1,10 +1,12 @@
 from machine import Pin, SPI
 from enc28j60 import Ntw 
-import time, random
+import time, urandom, struct
 from uDnsClient import DnsClientNtw, DNS_RCODE_NOERROR
 
+MAX_UINT32 = (1<<32)-1
+
 class TCP4client:
-    def __init__(self, ntw, dns_client = None, port_min = 1000, port_max = 10000):
+    def __init__(self, ntw, dns_client = None, port_min = 1000, port_max = 1020):
         self.ntw = ntw
         self.dns_client = dns_client
         
@@ -47,16 +49,17 @@ class TCP4client:
             
             self.responses = []
 
-            self.seq_num = random.randint(0,0xFFFFFFF)
-            self.ack_num = 0 & 0xFFFFFFFF
-            
+            self.seq_num = 0 & MAX_UINT32
+            self.seq_num = MAX_UINT32#urandom.getrandbits(32)  #randomize seq_num
+            self.ack_num = 0 & MAX_UINT32
+
             self._recived = []
             self.state = -1     #-1 - offline,0 - available 1 - starting, 2 - stoping, 3 - half closed, 4 - server closing, 5 - restart_timeout
             self.timer = 0
-                    
-            self.last_ack_num = 0 & 0xFFFFFFFF
-            self.last_seq_num = 0 & 0xFFFFFFFF
-        
+
+            self.last_ack_num = 0 & MAX_UINT32
+            self.last_seq_num = 0 & MAX_UINT32
+
         def dnsCallback(self, hostname, status, addr, ttl):
             if DNS_RCODE_NOERROR != status or addr is None:
                 print(f'[DNS] Cannot resolve {hostname} name')
@@ -95,7 +98,7 @@ class TCP4client:
         if not self.module:
             return -1
         
-        port = self.available_ports.pop(random.randint(0, len(self.available_ports)))
+        port = self.available_ports.pop(0)
         
         seassion = self.Seassion(port, tgt_ip, tgt_port, timeout, window_size, keep)    
 
@@ -172,9 +175,9 @@ class TCP4client:
                 if pkt.tcp_flags & 0b10000 == 0b10000:
                     seassion.seq_num = pkt.tcp_ack_num
                     seassion.ack_num = pkt.tcp_seq_num + len(pkt.tcp_data) + (len(pkt.tcp_data) == 0 and not pkt.tcp_flags == 0b10000)
-                    
-                    seassion.ack_num = seassion.ack_num & 0xFFFFFFFF
-                        
+
+                    seassion.ack_num = seassion.ack_num & MAX_UINT32 #ack_num must be 32bit
+
                     if seassion.state == 4: #When server starts closing and aknowleged clients fin flag
                         seassion.state = 5      #closed connection
                     
@@ -212,10 +215,7 @@ class TCP4client:
                 #########################################
             
             seassion._recived.remove(pkt)
-                          
-    def generate_seq_num(self):
-        return(random.randint(0,0xFFFFFFF))
-    
+       
     def insert_message(self, seassion, seq_num):
         message = seassion.messages.pop(0)
         seassion.to_send.append([seq_num, message, 0b11000])
@@ -258,7 +258,7 @@ if __name__ == '__main__':
         
     
     
-    tcp = TCP4client(ntw, dns_client=dns_client)
+    tcp = TCP4client(ntw, dns_client=dns_client, port_min=1001)
     
     seassion1 = tcp.new_connection(tgt_ip=server, tgt_port=target_port)
     if seassion1 == -1:

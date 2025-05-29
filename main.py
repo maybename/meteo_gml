@@ -120,21 +120,25 @@ def send_data(value:float, sensor_type:str):    #sends data to server
 def ether_on_second_core():     #automaticly sends data when available, runs on second core. To use spi0, set ethernet to False
     while True:
         if ethernet:
-            ntw.rxAllPkt()
-            if ntw.configIp4Done:
-                tcp.loop()
+            try:
+                ntw.rxAllPkt()
+                if ntw.configIp4Done:
+                    tcp.loop()
 
-            for s in tcp.seassions:
-                if s == None:
-                    continue
-                #print("\t[TCP] Session: ", s.state, s.messages)
-                if not s.responses == []:
-                    for response in s.responses:
-                        if "ERR" in response:
-                            print(str(response))
-                            l.write("\n", "Error from server", "\n-----------------\n", response, "\n------------------")
-                    s.responses.clear()
-            gc.collect()  #collects garbage
+                for s in tcp.seassions:
+                    if s == None:
+                        continue
+                    #print("\t[TCP] Session: ", s.state, s.messages)
+                    if not s.responses == []:
+                        for response in s.responses:
+                            if "ERR" in response:
+                                print(str(response))
+                                l.write("\n", "Error from server", "\n-----------------\n", response, "\n------------------")
+                        s.responses.clear()
+                gc.collect()  #collects garbage
+            except Exception as e:
+                print("Exception on second core: ", e)
+                l.write("Exception on second core: ", e)
         time.sleep(0.1)  #sleep to prevent high cpu usage            
 
 def callback(timer):    #callback function for timer
