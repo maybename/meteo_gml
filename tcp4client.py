@@ -78,7 +78,10 @@ class TCP4client:
             self.messages += messages
 
     def sendTCP(self, seassion, message, flags):
-            if self.ntw.getArpEntry(self.ntw.gwIp4Addr) == None and self.ntw.getArpEntry(seassion.tgt_ip) == None:
+            if seassion.tgt_ip == []:
+                print("Unknown target IP")
+
+            elif self.ntw.getArpEntry(self.ntw.gwIp4Addr) == None and self.ntw.getArpEntry(seassion.tgt_ip) == None:
                 print("Unknown MAC, sending request")
                 if self.ntw.isLocalIp4(seassion.tgt_ip):
                     self.ntw.sendArpRequest(seassion.tgt_ip)
@@ -98,6 +101,8 @@ class TCP4client:
         if not self.module:
             return -1
         
+        if len(self.available_ports) == 0:
+           return -1
         port = self.available_ports.pop(0)
         
         seassion = self.Seassion(port, tgt_ip, tgt_port, timeout, window_size, keep)    
@@ -258,20 +263,19 @@ if __name__ == '__main__':
         
     
     
-    tcp = TCP4client(ntw, dns_client=dns_client, port_min=1001)
+    tcp = TCP4client(ntw, dns_client=dns_client, port_min=1000)
     
-    seassion1 = tcp.new_connection(tgt_ip=server, tgt_port=target_port)
+    seassion1 = tcp.new_connection(tgt_port=target_port, domain="google.com")
     if seassion1 == -1:
         print("Failed to create TCP session")
         exit(1)
         
-    seassion1.send("POST /skript.php HTTP/1.1\r\n"
-                    "Host: student.gml.cz\r\n"
-                    "Content-Type: application/x-www-form-urlencoded\r\n"
-                    "Content-Length: 13\r\n"
+    seassion1.send("GET / HTTP/1.1\r\n"
+                    "Host: google.com\r\n"
+                    "Content-Length: 0\r\n"
                     "Connection: close\r\n"
-                    "\r\n"
-                    "value=100")
+                    "\r\n")
+    
     print(seassion1.messages)
     print("looping")
     while True:

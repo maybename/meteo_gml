@@ -1,4 +1,4 @@
-from machine import Timer, Pin
+from machine import Timer, Pin, reset
 import _thread, gc, log, time
 print(time.ticks_ms())
 from sensors import *
@@ -108,8 +108,13 @@ def send_data(value:float, sensor_type:str):    #sends data to server
     data = '{"type":"' + sensor_type + '","value":' + str(value) + '}'  #constructing json
 
     s = tcp.new_connection(tgt_ip=server, tgt_port=port)  #creating new connection
+    if s == -1:
+        print("Error creating new connection")
+        l.write("Error creating new connection, waiting...")
+        return
     while s == -1:  #waiting for connection to be established
         s = tcp.new_connection(tgt_ip=server, tgt_port=port)
+        
     s.send("POST {} HTTP/1.1" "\r\n"          #constructing http header
         "Host: student.gml.cz" "\r\n"
         "Content-Length: {}" "\r\n"
@@ -117,7 +122,7 @@ def send_data(value:float, sensor_type:str):    #sends data to server
         "Connection-Type: closed""\r\n""\r\n"
         "{}".format(path, len(data), data))
     
-def ether_on_second_core():     #automaticly sends data when available, runs on second core. To use spi0, set ethernet to False
+def second_core():     #automaticly sends data when available, runs on second core. To use spi0, set ethernet to False
     while True:
         if ethernet:
             try:
@@ -137,48 +142,57 @@ def ether_on_second_core():     #automaticly sends data when available, runs on 
                         s.responses.clear()
                 gc.collect()  #collects garbage
             except Exception as e:
-                print("Exception on second core: ", e)
-                l.write("Exception on second core: ", e)
+                print("Exception in ethernet: ", e)
+                l.write("Exception in ethernet: ", e)
+        if alive + 120 < time.time():
+            print("Mateo got stuck, restarting...")
+            l.write("Mateo got stuck, restarting...")
+            reset()  #restarts if not alive for more than 120 seconds
         time.sleep(0.1)  #sleep to prevent high cpu usage            
 
 def callback(timer):    #callback function for timer
     global measure
     measure = True
 
-
-
+alive = 0
+def still_alive():
+    global alive
+    alive = time.time()
 
 print("Mateo started")
 
 
 l = log.log("mateo-log.txt")    #setups logging
 
+#checks if all functions from file sensors.py in list sensors are valid, if not they will be removed
+k = 0
+while k < (len(sensors)):
+    print(sensors[k])
+    if not len(sensors[k]) == 3:
+        sensors.pop(k)
+    else:
+        sensors[k].append(False)    
+        k += 1
+
 if ethernet:    #inits ethernet
     ntw = Ntw.Ntw(spi0, Pin(17))
     ntw.setIPv4(ip, mask, gw_ip)
     tcp = TCP4client(ntw)
+
+led = Pin("LED", Pin.OUT)
+led.on()    #turns led on on startup
+main_timer = Timer(-1, mode=Timer.PERIODIC, period=3*60*1000, callback=callback)
+still_alive()
+try:
+    _thread.start_new_thread(second_core, ())  #starts loop on second core for ethernet
+except Exception as e:
+    print("Error starting ethernet thread:", e)
+    l.write("Error starting ethernet thread:", str(e), "\n")
     
 while True:
     try:
-        led = Pin("LED", Pin.OUT)
-        led.on()    #turns led on on startup
-        main_timer = Timer(-1, mode=Timer.PERIODIC, period=3*60*1000, callback=callback)
+        
 
-        try:
-            _thread.start_new_thread(ether_on_second_core, ())  #starts loop on second core for ethernet
-        except Exception as e:
-            print("Error starting ethernet thread:", e)
-            l.write("Error starting ethernet thread:", str(e), "\n")
-
-        #checks if all functions from file sensors.py in list sensors are valid, if not they will be removed
-        k = 0
-        while k < (len(sensors)):
-            print(sensors[k])
-            if not len(sensors[k]) == 3:
-                sensors.pop(k)
-            else:
-                sensors[k].append(False)    
-                k += 1
         init_modules()  #runs all init functions in list sensors
         
         gc.collect()  #collects garbage
@@ -189,10 +203,12 @@ while True:
                 print('processing')
                 process()
                 gc.collect()
+                still_alive()
                 init_modules()
                 gc.collect()
                 print('free: ', gc.mem_free(), '  used: ', gc.mem_alloc())
             time.sleep(1)
+            still_alive()
 
     except Exception as e:
         if e == KeyboardInterrupt:
