@@ -12,7 +12,7 @@ class TCP4client:
         
         if self.check_module() == -1:
             self.module = False
-        return -1
+            return -1
     class Seassion:
         def __init__(self, port, tgt_ip, tgt_port, timeout = 30, window_size = 512):
             self.port = port    
@@ -236,8 +236,8 @@ if __name__ == '__main__':
     ip = [172,20,2,190]
     mask = [255,255,255,0]
     gw_ip = [172,20,2,254]
-    ntw.setIPv4(ip,mask,gw_ip)
-    #ntw.setIPv4([192,168,68,135], [255,255,255,0], [192,168,68,1]) #doma
+    #ntw.setIPv4(ip,mask,gw_ip)
+    ntw.setIPv4([192,168,68,135], [255,255,255,0], [192,168,68,1]) #doma
     #ntw.setIPv4([172,20,13,112], [255,255,255,0], [172,20,13,254]) #škola
 
         

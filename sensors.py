@@ -90,10 +90,18 @@ class multiplexer:
         for i,pin in enumerate(self.SELECT):
             pin.value(channel & 0b1 << i)    
         
+        
+class Sensor:
+    def __init__(self, init_function:function, read_function:function = lambda: None, paths:tuple[str,...] = ()):
+        self.init = init_function
+        self.read = read_function
+        self.paths = paths
+        self.use = False
+        
 sensors = [
-            #[analog_init, lambda: None, ()], #only to setup analog, to read call analog_read
-            [multiplexer_init, lambda: None, ()], #only to setup multiplexer, to read call read or analogRead
-            [MHZ_init, MHZ_read, ("co2",)], 
-            [BME_init, BME_read, ("temp", "press", "hum")],            
-            [PMS_init, PMS_read, ("PM1.0", "PM2.5", "PM10", "pm0.3", "pm0.5", "pm1.0","pm2.5", "pm5.0", "pm10")], 
+            Sensor(analog_init), # only to setup analog, to read call analog_read
+            Sensor(multiplexer_init), # only to setup multiplexer, to read call read or analogRead
+            Sensor(MHZ_init, MHZ_read, ("co2",)), 
+            Sensor(BME_init, BME_read, ("temp", "press", "hum")),            
+            Sensor(PMS_init, PMS_read, ("PM1.0", "PM2.5", "PM10", "pm0.3", "pm0.5", "pm1.0","pm2.5", "pm5.0", "pm10")), 
             ]
