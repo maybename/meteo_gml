@@ -165,6 +165,9 @@ while True:
         main_timer = Timer(-1, mode=Timer.PERIODIC, period=3*60*1000, callback=callback)
 
         try:
+            # https://stackoverflow.com/questions/75257342/micropython-runtimeerror-maximum-recursion-depth-exceeded
+            # _thread.stack_size(5*1024)
+            # _thread.start_new_thread(recursionTest,())
             _thread.start_new_thread(ether_on_second_core, ())  #starts loop on second core for ethernet
         except Exception as e:
             print("Error starting ethernet thread:", e)
