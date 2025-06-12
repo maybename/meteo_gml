@@ -23,9 +23,9 @@ class TCP4client:
             self.reset()
 
         def __call__(self, pkt):
-            if pkt.tcp_seq_num >= self.last_seq_num or pkt.tcp_seq_num == 0 and not self.state == 5:
+            if (pkt.tcp_seq_num >= self.last_seq_num or pkt.tcp_seq_num == 0) and not pkt.tcp_flags == self.last_flags:
                 print('\t[TCPclient] Recived: Port {0} -> {1}, seq: {2}, ack: {3}, flags: {4}'.format(pkt.tcp_srcPort, pkt.tcp_dstPort, pkt.tcp_seq_num, pkt.tcp_ack_num, pkt.tcp_flags))
-                self.last_seq_num = pkt.tcp_seq_num
+                self.last_seq_num, self.last_flags = pkt.tcp_seq_num, pkt.tcp_flags
                 self._recived.append(pkt)
 
         def reset(self):
@@ -35,7 +35,7 @@ class TCP4client:
             self.responses = []
 
             self.seq_num = 0 & MAX_UINT32
-            self.seq_num = MAX_UINT32#urandom.getrandbits(32)  #randomize seq_num
+            self.seq_num = urandom.getrandbits(32)  #randomize seq_num
             self.ack_num = 0 & MAX_UINT32
 
             self._recived = []
@@ -44,7 +44,7 @@ class TCP4client:
 
             self.last_ack_num = 0 & MAX_UINT32
             self.last_seq_num = 0 & MAX_UINT32
-
+            self.last_flags = 0
 
         def send(self, message:str | list):
             if type(message) == str:
@@ -54,7 +54,7 @@ class TCP4client:
 
             self.messages += messages
 
-    def __init__(self, ntw, dns_client = None, port_min = 1000, port_max = 2000, max_sessions = None, max_messages = None):
+    def __init__(self, ntw:Ntw.Ntw, dns_client = None, port_min = 1000, port_max = 2000, max_sessions = None, max_messages = None):
 
         self.ntw = ntw
         self.dns_client = dns_client
@@ -112,6 +112,7 @@ class TCP4client:
             tgt_ip = self.known_domains[domain]
 
         if tgt_ip == [] and domain != '' and not self.dns_client == None:
+                print("Unknown domain, resolving with DNS...")
                 self.dns_client.resolve_host_name(domain, self.dnsCallback)
         elif tgt_ip == []:
             return -3
@@ -156,10 +157,11 @@ class TCP4client:
     def terminate_connection(self, session:Session):
         print("terminating session")
         if session in self.sessions:
+            messages = session.messages
             self.available_ports.append(session.port)
             if session.keep or len(session.messages) >= 0:
                 tgt_port, tgt_ip, domain, timeout, window_size, keep = session.tgt_port, session.tgt_ip, session.domain, session.timeout, session.window_size, session.keep
-                messages = session.messages
+                
                 
                 self.sessions.remove(session)
                 s = None
@@ -168,7 +170,10 @@ class TCP4client:
                 s.messages = messages
             else:
                 self.sessions.remove(session)
-        
+
+            session.reset()
+            self.ntw.registerTcp4Callback(session.port, None)
+            
         else:
             return -1
 
