@@ -116,6 +116,8 @@ def send_data(value:float, sensor_type:str):    #sends data to server
         #"Content-Type: application/json" "\r\n" 
         "Connection-Type: closed""\r\n""\r\n"
         "{}".format(path, len(data), data))
+    # There might be a memory leak here, because the connection is not terminated
+    # tcp.terminate_connection(s)
     
 def ether_on_second_core():     #automaticly sends data when available, runs on second core. To use spi0, set ethernet to False
     while True:
