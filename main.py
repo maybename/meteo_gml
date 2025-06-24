@@ -204,3 +204,4 @@ while True:
             l.write("global Error: ", str(e), "\n")
         except:
             print("failed to write into log")
+        reset()

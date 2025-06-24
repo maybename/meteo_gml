@@ -24,3 +24,4 @@ class log:
                 
         with open(self.file, "a") as f:
             f.write(timestamp + text + end)
+        f.close()
