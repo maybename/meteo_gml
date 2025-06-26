@@ -42,6 +42,7 @@ class PMS5003:
                     #print(length, data, checksum, suma)
 
                     if suma == checksum and length == 28:
+                        data_raw = None
                         PM1_0, PM2_5, PM10, pm0_3, pm0_5, pm1_0, pm2_5, pm5_0, pm10_0 = [data[i] * 256 + data[i + 1] for i in range(6, 24, 2)]
                         #print("PM1.0: ", PM1_0, " PM2.5: ", PM2_5, " PM10: ", PM10,
                         #      " PM0.3: ", pm0_3, " PM0.5: ", pm0_5, 
@@ -54,6 +55,8 @@ class PMS5003:
                         continue
             else:
                 time.sleep(0.01)
+
+        data_raw = None
         return None
                 
 if __name__ == "__main__":

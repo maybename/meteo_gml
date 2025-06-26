@@ -25,11 +25,11 @@ class TCP4client:
             self.reset()
 
         def __call__(self, pkt):
-            if (pkt.tcp_seq_num >= self.last_seq_num or pkt.tcp_seq_num == 0) and not pkt.tcp_flags == self.last_flags:
+            if (pkt.tcp_seq_num >= self.last_seq_num or pkt.tcp_seq_num == 0) and not pkt.tcp_flags == self.last_flags and pkt.tcp_dstPort == self.port and len(self._received) < 10:
                 if SHOW_PRINTS: 
                    print('\t[TCPclient] Recived: Port {0} -> {1}, seq: {2}, ack: {3}, flags: {4}'.format(pkt.tcp_srcPort, pkt.tcp_dstPort, pkt.tcp_seq_num, pkt.tcp_ack_num, pkt.tcp_flags))
                 self.last_seq_num, self.last_flags = pkt.tcp_seq_num, pkt.tcp_flags
-                self._recived.append(pkt)
+                self._received.append(pkt)
 
         def reset(self):
             self.to_send = []
@@ -41,7 +41,7 @@ class TCP4client:
             self.seq_num = urandom.getrandbits(32)  #randomize seq_num
             self.ack_num = 0 & MAX_UINT32
 
-            self._recived = []
+            self._received = []
             self.state = -1     #-1 - offline,0 - available 1 - starting, 2 - stoping, 3 - half closed, 4 - server closing, 5 - restart_timeout
             self.timer = 0
 
@@ -120,14 +120,14 @@ class TCP4client:
                 print(self.known_domains)
             tgt_ip = self.known_domains[domain]
 
-        if tgt_ip == [] and domain != '' and not self.dns_client == None:
+        if tgt_ip == [] and not domain == '' and not self.dns_client == None:
                 if SHOW_PRINTS:
                     print("Unknown domain, resolving with DNS...")
                 self.dns_client.resolve_host_name(domain, self.dnsCallback)
         elif tgt_ip == []:
             return -3
 
-        if self.max_sessions is not None and len(self.sessions) >= self.max_sessions:
+        if not self.max_sessions == None and len(self.sessions) >= self.max_sessions:
             if not self.max_messages == None:
                 m = 0
                 for s in self.sessions:
@@ -160,8 +160,6 @@ class TCP4client:
 
             self.sessions.append(session)
 
-            #self.mk_path(tgt_ip)
-
             self.ntw.registerTcp4Callback(port, self.sessions[-1])
             return session
 
@@ -189,36 +187,6 @@ class TCP4client:
         else:
             return -1
 
-    def mk_path(self, tgt_ip):
-        tgtMac = None
-        while tgtMac == None:
-            if self.ntw.isLocalIp4(tgt_ip):
-                tgtMac = self.ntw.getArpEntry(tgt_ip)
-            else:
-                tgtMac = self.ntw.getArpEntry(self.ntw.gwIp4Addr)
-            if tgtMac == None:
-                if SHOW_PRINTS:
-                    print("Unknown MAC, sending request")
-                if self.ntw.isLocalIp4(tgt_ip):
-                    self.ntw.sendArpRequest(tgt_ip)
-                else:
-                    self.ntw.sendArpRequest(self.ntw.gwIp4Addr)
-            timer = time.time()
-
-            while True:
-                self.ntw.rxAllPkt()
-                if self.ntw.isLocalIp4(tgt_ip):
-                    tgtMac = self.ntw.getArpEntry(tgt_ip)
-                else:
-                    tgtMac = self.ntw.getArpEntry(self.ntw.gwIp4Addr)
-                if not tgtMac == None:
-                    return
-                if timer + 10 <= time.time():
-                    if SHOW_PRINTS:
-                        print('timeout!!! ', time.time())
-                    break
-
-
     def check_module(self):
         revID = self.ntw.nic.GetRevId()
         if revID == 0x00:
@@ -229,10 +197,8 @@ class TCP4client:
             #print("ethernet module OK")
             return 0
 
-
-
     def procResponses(self, session:Session):
-        for pkt in session._recived:
+        for pkt in session._received:
             if pkt.tcp_flags & 0b100 == 0b100: #RST packet
                 session.seq_num = 0
                 session.ack_num = pkt.tcp_seq_num + 1
@@ -283,8 +249,8 @@ class TCP4client:
                     session.state = 2
 
                 #########################################
-
-        session._recived = []
+            pkt = None
+        session._received = []
 
     def insert_message(self, session, seq_num):
         message = session.messages.pop(0)
@@ -321,12 +287,11 @@ if __name__ == '__main__':
     ntw = Ntw.Ntw(nicSpi, Pin(nicCsPin))
     dns_client = DnsClientNtw(ntw, 567)
 
-# Set static IP address
+    # Set static IP address
     ntw.setIPv4([192,168,68,129], [255,255,255,0], [192,168,68,1]) #doma
     #ntw.setIPv4([172,20,13,112], [255,255,255,0], [172,20,13,254]) #škola
 
     dns_client.set_serv_addr(bytes([8,8,8,8]))
-
 
     tcp = TCP4client(ntw, dns_client=dns_client, max_sessions=2, max_messages=10)
 

@@ -36,4 +36,4 @@ ip, mask, gw_ip = bytes([int(i) for i in ip.split('.')]), bytes([int(i) for i in
 server = "student.gml.cz" #target server, use domain name
 
 port = 80   #target port
-path = "/skriptsql.php" #target path
+path = "/meteo/measurements.php" #target path

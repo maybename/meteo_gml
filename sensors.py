@@ -92,16 +92,17 @@ class multiplexer:
         
         
 class Sensor:
-    def __init__(self, init_function:function, read_function:function = lambda: None, paths:tuple[str,...] = ()):
+    def __init__(self, init_function = lambda: None, read_function = lambda: None, paths:tuple[str,...] = (), core:bool = False) -> None:
         self.init = init_function
         self.read = read_function
         self.paths = paths
+        self.second_core = core
         self.use = False
         
 sensors = [
-            Sensor(analog_init), # only to setup analog, to read call analog_read
+            Sensor(analog_init,), # only to setup analog, to read call analog_read
             Sensor(multiplexer_init), # only to setup multiplexer, to read call read or analogRead
-            Sensor(MHZ_init, MHZ_read, ("co2",)), 
+            Sensor(MHZ_init, MHZ_read, ("co2",), core=True), 
             Sensor(BME_init, BME_read, ("temp", "press", "hum")),            
-            Sensor(PMS_init, PMS_read, ("PM1.0", "PM2.5", "PM10", "pm0.3", "pm0.5", "pm1.0","pm2.5", "pm5.0", "pm10")), 
+            Sensor(PMS_init, PMS_read, ("PM1.0", "PM2.5", "PM10", "pm0.3", "pm0.5", "pm1.0","pm2.5", "pm5.0", "pm10"),core=True), 
             ]
