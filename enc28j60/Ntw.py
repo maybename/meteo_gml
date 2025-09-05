@@ -17,7 +17,7 @@
 from machine import Pin
 from machine import SPI
 from micropython import const
-from lib import enc28j60
+from enc28j60 import enc28j60
 import struct
 
 

@@ -1,48 +1,79 @@
 import machine
-import utime
+
+RED = "\033[31m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+RESET = "\033[0m"
 
 # List of pins to test
 pins = [
     machine.Pin(i, machine.Pin.OUT) for i in range(0, 29) if (i < 23 or i > 25) and i != 16  # GPIO 0-29 (exclude any reserved or power pins)
 ]
 
-# Helper function to reset pins
-def reset_pins():
+def reset_output():
+    global output
+    output = [[i for i in range(0, 29) if (i < 23 or i > 25) and i != 16]]
+
+def set_pins(high: bool):
+    mode = machine.Pin.PULL_DOWN
+    if high:
+        mode = machine.Pin.PULL_UP
     for pin in pins:
+        pin.init(machine.Pin.IN, mode)
+
+def read_pins() -> list:
+    return [pin.value() for pin in pins]
+
+def main():
+    reset_output()
+    set_pins(False)
+    for i, pin in enumerate(pins):
+        pin.init(machine.Pin.OUT)
+        pin.value(1)
+        o = read_pins()
+        o[i] = "X"
+        output.append([output[0][i]] + o)
+        pin.value(0)
         pin.init(machine.Pin.IN, machine.Pin.PULL_DOWN)
-
-def test_pins():
-    print("Starting pin connectivity test...")
-
-    for i, output_pin in enumerate(pins):
-        # Set current pin as output and drive it HIGH
-        output_pin.init(machine.Pin.OUT)
-        output_pin.value(1)
-
-        print(f"Testing pin {i}:")
         
-        # Check all other pins as inputs
-        for j, input_pin in enumerate(pins):
-            if i == j:
-                continue
+    print("HIGH PIN TEST")
+    print_output()
 
-            input_pin.init(machine.Pin.IN, machine.Pin.PULL_DOWN)
-            pin_value = input_pin.value()
+    reset_output()
+    set_pins(True)
+    for i, pin in enumerate(pins):
+        pin.init(machine.Pin.OUT)
+        pin.value(0)
+        o = read_pins()
+        o[i] = "X"
+        output.append([output[0][i]] + o)
+        pin.value(1)
+        pin.init(machine.Pin.IN, machine.Pin.PULL_UP)
 
-            if pin_value == 1 and not input_pin == machine.Pin(23) and not input_pin == machine.Pin(16):
-                print(f"  - Pin {j} detects HIGH (connection found)")
-            #else:
-            #    print(f"  - Pin {j} detects LOW (no connection)")
+    print("LOW PIN TEST")
+    print_output()
 
-        # Reset the output pin to input
-        output_pin.init(machine.Pin.IN, machine.Pin.PULL_DOWN)
-        utime.sleep(0.1)  # Small delay for stability
+def print_output():
+    #print(output)
+    t = " XX |"
+    for i in output[0]:
+        if i < 10:
+            t += f" 0{i} |"
+        else:
+            t += f" {i} |"
+    print(t)
+    print("_" * (5 * len(output[0]) + 5))
+    for row in output[1:]:
+        line = ""
+        line += f" {row[0]} |" if row[0] > 9 else f" 0{row[0]} |"
+        for i in row[1:]:
+            if i == "X":
+                line += f" {YELLOW}XX{RESET} |"
+            elif i:
+                line += f" {GREEN}HH{RESET} |"
+            else:
+                line += f" {RED}LL{RESET} |"
+        print(line)
 
-    print("Pin connectivity test complete.")
-
-# Ensure pins are reset at the start and end of the test
-try:
-    reset_pins()
-    test_pins()
-finally:
-    reset_pins()
+print(len(pins))
+main()

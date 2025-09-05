@@ -1,7 +1,7 @@
 from machine import Pin, SPI
 from enc28j60 import Ntw
 import time, urandom, struct
-from uDnsClient import DnsClientNtw, DNS_RCODE_NOERROR
+from enc28j60.uDnsClient import DnsClientNtw, DNS_RCODE_NOERROR
 
 MAX_UINT32 = (1<<32)-1
 
