@@ -1,8 +1,8 @@
-import time
+import time, _thread
 
 class log:
     def __init__(self, file:str) -> None:
-        
+        self.lock = _thread.allocate_lock()
         self.file = file
         try:
             with open(self.file, "r") as f: #opens the file
@@ -22,6 +22,8 @@ class log:
             else:
                 timestamp = ''
                 
+        self.lock.acquire()                
         with open(self.file, "a") as f:
             f.write(timestamp + text + end)
         f.close()
+        self.lock.release()

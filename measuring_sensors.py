@@ -4,21 +4,22 @@ import log
 from config import *
 
 l = log.log("sensors.log")
-measured_data = {"sensors": [], "time": 0}  # dictionary to store sensor data
 output = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] for _ in range(num_of_samples)]  # list to store temp output from sensors
-run_init_modules = True  # flag to indicate if init modules should be run
-init_Timer = Timer(-1, period=60000, mode=Timer.ONE_SHOT, callback=lambda t: init_callback())  # timer to run init modules every second
+last_init = 0
 
-def init_callback():
-    global run_init_modules
-    run_init_modules = True
+sensors_prints = True  #enable prints for debugging
+
+
+def run_init_modules():
+    return time.time() > last_init + 60
 
 
 
 def init_modules():   #tries to init all functions in list sensors which have False in the last index (tries to restart broken ones)
-    global run_init_modules
-    run_init_modules = False  # resets flag
-    init_Timer.init()   #resets timer
+    if sensors_prints:
+        print("initializing sensors...")
+    global last_init
+    last_init = time.time()
     for s in sensors:
         #print(sensors[i], len(sensors[i]))
         if not s.use:
@@ -26,27 +27,31 @@ def init_modules():   #tries to init all functions in list sensors which have Fa
                 if callable(s.init):
                     s.use = True
                     s.init()
-                    print(f"sensor {s.name} successfully initialised ")
+                    if sensors_prints:
+                        print(f"sensor {s.name} successfully initialised ")
                     l.write(f"sensor {s.name} successfully initialised ")
                 else:
-                    print(f"function {s.init} is not callable")
+                    if sensors_prints:
+                        print(f"function {s.init} is not callable")
             except Exception as e:
                 s.use = False
                 print(f"sensor {s.name}: failed initialising:", str(e))
                 l.write(f"sensor {s.name}: failed initialising:", str(e))
 
-def process():  #takes num_of_samples measurements from each sensor, makes average and sends them to the server, if there is an issue with reading, sets last index to False
-    global measured_data, output
-    measured_data = {"sensors": [], "time": 0}  # dictionary to store sensor data
+def process(measured_data):  #takes num_of_samples measurements from each sensor, makes average and sends them to the server, if there is an issue with reading, sets last index to False
+    global output
+    measured_data["sensors"] = []
     for s in sensors:        
         if s.use and not len(s.paths) == 0:
             for x in range(num_of_samples):
                 try:
                     if not callable(s.read):
-                        print(f"sensor {s.name}: function {s.read} is not callable")
+                        if sensors_prints:
+                            print(f"sensor {s.name}: function {s.read} is not callable")
                         break
                     v = s.read()
-                    print(v)
+                    if sensors_prints:
+                        print(v)
                     if v == None:
                         print(f"sensor {s.name}: failed reading (timeout)")
                         l.write(f"sensor {s.name}: failed reading (timeout)")
@@ -70,6 +75,8 @@ def process():  #takes num_of_samples measurements from each sensor, makes avera
                         avg.append(o[j])
                 avg = average(avg)
                 if not avg == None:
+                    if measured_data.get("sensors") is None:
+                        measured_data["sensors"] = []
                     measured_data["sensors"].append({"type": path, "value": avg})
     
     measured_data["time"] = time.time()

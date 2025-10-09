@@ -69,7 +69,7 @@ class TCP4client:
         self.known_domains = {}
         self.module = True #true, module connected; false, something wrong with module
 
-        self.available_ports = [port_min, port_min, port_max]  # min, current, max
+        self.available_ports = [port_min, urandom.randint(port_min, port_max), port_max]  # min, current, max
 
         self.session = None
 
@@ -92,13 +92,12 @@ class TCP4client:
     def get_port(self):
         if self.available_ports[1] > self.available_ports[2]:
             self.available_ports[1] = self.available_ports[0]
-        port = self.available_ports[1] if self.available_ports[1]<= self.available_ports[2] else self.available_ports[0]
+        port = self.available_ports[1]+1 if self.available_ports[1]<= self.available_ports[2] else self.available_ports[0]
         self.available_ports = [self.available_ports[0], self.available_ports[1]+1, self.available_ports[2]]
         
         if not self.session == None:
             self.ntw.registerTcp4Callback(self.session.port, None)
             self.ntw.registerTcp4Callback(port, self.session)
-        
         return port
         
         
@@ -128,7 +127,7 @@ class TCP4client:
 
 
 
-    def new_connection(self, domain = '', tgt_port = 80, tgt_ip = [], timeout = 10, window_size = 512, keep = False):
+    def new_connection(self, domain = '', tgt_port = 80, tgt_ip = [], timeout = 10, window_size = 512, keep = False, port = None):
         if not self.module:
            return -1
         
@@ -149,7 +148,7 @@ class TCP4client:
                     print("Too much messages, ", len(self.session.messages))
                 return -4
 
-        port = self.get_port()
+        port = self.get_port() if port == None else port
 
         session = self.Session(port, tgt_ip, tgt_port, domain, timeout, window_size, keep)
 
@@ -162,60 +161,6 @@ class TCP4client:
 
         self.ntw.registerTcp4Callback(port, self.session)
         return session
-
-    '''def terminate_connection(self, session:Session):
-        if SHOW_PRINTS:
-            print("terminating session")
-        if session in self.sessions:
-            messages = session.messages
-            self.available_ports.append(session.port)
-            if session.keep or len(session.messages) >= 0:
-                tgt_port, tgt_ip, domain, timeout, window_size, keep = session.tgt_port, session.tgt_ip, session.domain, session.timeout, session.window_size, session.keep
-                
-                
-                self.sessions.remove(session)
-                s = None
-                while not type(s) == TCP4client.Session:
-                    s = self.new_connection(domain=domain, tgt_port=tgt_port, tgt_ip=tgt_ip, timeout=timeout, window_size=window_size, keep=keep)
-                s.messages = messages
-            else:
-                self.sessions.remove(session)
-
-            session.reset()
-            self.ntw.registerTcp4Callback(session.port, None)
-            
-        else:
-            return -1
-
-    def mk_path(self, tgt_ip):
-        tgtMac = None
-        while tgtMac == None:
-            if self.ntw.isLocalIp4(tgt_ip):
-                tgtMac = self.ntw.getArpEntry(tgt_ip)
-            else:
-                tgtMac = self.ntw.getArpEntry(self.ntw.gwIp4Addr)
-            if tgtMac == None:
-                if SHOW_PRINTS:
-                    print("Unknown MAC, sending request")
-                if self.ntw.isLocalIp4(tgt_ip):
-                    self.ntw.sendArpRequest(tgt_ip)
-                else:
-                    self.ntw.sendArpRequest(self.ntw.gwIp4Addr)
-            timer = time.time()
-
-            while True:
-                self.ntw.rxAllPkt()
-                if self.ntw.isLocalIp4(tgt_ip):
-                    tgtMac = self.ntw.getArpEntry(tgt_ip)
-                else:
-                    tgtMac = self.ntw.getArpEntry(self.ntw.gwIp4Addr)
-                if not tgtMac == None:
-                    return
-                if timer + 10 <= time.time():
-                    if SHOW_PRINTS:
-                        print('timeout!!! ', time.time())
-                    break
-    '''
 
     def check_module(self):
         revID = self.ntw.nic.GetRevId()
