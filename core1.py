@@ -2,7 +2,7 @@ from config import *
 
 from machine import Pin
 from sensors import spi0
-import _thread, time, buffer, os
+import _thread, time, buffer, json
 
 from enc28j60 import Ntw
 from enc28j60.uDnsClient import DnsClientNtw
@@ -53,13 +53,15 @@ class Server:
     
     def data(self, *args):
         count = len(buffer.buffer)
-        out = "<h1>measured data</h1>\n\n"
-        with buffer.buffer_lock:
-            for b in buffer.buffer:
-                out += b + "\n"
+        out = '''<h1>measured data</h1>
+        <pre style="text-align: left;">
+        '''
     
-        out += f"datapackets waits to send: {count}\n"
-        out += f"last sended payload: {self.ether.payload}\n"
+        out += f"datapackets waits to send: {count}\r\n"
+        out += f"last sended measurement: \r\n"
+        for k in json.loads(self.ether.payload)["sensordatavalues"]:
+            out += f"\t- {k["value_type"]} : {k["value"]}\r\n"
+        out += "</pre>"
         return out
     
     def log(self, *args):
@@ -119,7 +121,14 @@ class EthernetThread:
 
             self.tcp.loop()
 
-            if self.session.state == -1:    #if tcp offline send data
+            if self.session.state == -1:    #if tcp offline check if data was sent successfuly and than send new data
+                for s in self.session.responses:
+                    s = bytes(s)
+                    print("response: ", s)
+                    if b'OK' in s and self.payload in buffer.buffer:
+                        buffer.remove(self.payload)
+                        print("successfuly sended")
+                self.session.responses = []
                 status = self.send()
                 global last_send
                 last_send = time.time()
@@ -140,21 +149,18 @@ class EthernetThread:
         if line == None:    #if buffer empty, return
             return -1
         
-        try:
-            self.payload = line.strip("\n")
-        except Exception:
-            # fallback, keep as ascii-ish
-            self.payload = str(line)
-            
+        self.payload = line
+        
         print("payload:", self.payload)
         try:
+            data = self.payload.strip()
             # construct and send HTTP request
             self.session.send(
                 "POST {} HTTP/1.1\r\n"
                 "Host: {}\r\n"
                 "Content-Length: {}\r\n"
                 "Connection-Type: closed\r\n\r\n"
-                "{}".format(path, server, len(self.payload), self.payload)
+                "{}".format(path, server, len(data), data)
             )
         except Exception as e:
             print("network send failed:", e)

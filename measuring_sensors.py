@@ -74,8 +74,8 @@ def process(measured_data):  #takes num_of_samples measurements from each sensor
                         avg.append(o[j])
                 avg = average(avg)
                 if not avg == None:
-                    if measured_data.get("sensors") is None:
-                        measured_data["sensors"] = []
+                    if measured_data.get("sensordatavalues") is None:
+                        measured_data["sensordatavalues"] = []
                     measured_data["sensordatavalues"].append({"value_type": path, "value": avg})
     
     measured_data["time"] = time.time()

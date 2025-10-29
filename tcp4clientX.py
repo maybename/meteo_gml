@@ -52,6 +52,9 @@ class TCP4client:
             self.last_flags = 0
 
         def send(self, message:str | list):
+            if self.state == -1:
+                self.reset()
+                
             if type(message) == str:
                 messages = [message]
             elif type(message) == list:
@@ -251,7 +254,7 @@ class TCP4client:
                     self.session.seq_num = self.session.sended[2]
                     self.sendTCP(self.session, self.session.sended[0], self.session.sended[1])
             else:
-                self.session.reset()
+                self.session.state = -1
                 self.session.port = self.get_port()
                 
 

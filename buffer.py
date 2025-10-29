@@ -30,4 +30,9 @@ def read_first():
 def remove(d):
     with buffer_lock:
         if d in buffer:
-            buffer.remove(d)
+            for i in range(len(buffer)):
+                line = buffer.popleft()
+                if line == d:
+                    return
+                else:
+                    buffer.append(line)
