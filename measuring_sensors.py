@@ -1,9 +1,8 @@
 from machine import Timer
 from sensors import *
-import log
+import log, time
 from config import *
 
-l = log.log("sensors.log")
 output = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] for _ in range(num_of_samples)]  # list to store temp output from sensors
 last_init = 0
 
@@ -29,18 +28,18 @@ def init_modules():   #tries to init all functions in list sensors which have Fa
                     s.init()
                     if sensors_prints:
                         print(f"sensor {s.name} successfully initialised ")
-                    l.write(f"sensor {s.name} successfully initialised ")
+                    measurements_l.write(f"sensor {s.name} successfully initialised ")
                 else:
                     if sensors_prints:
                         print(f"function {s.init} is not callable")
             except Exception as e:
                 s.use = False
                 print(f"sensor {s.name}: failed initialising:", str(e))
-                l.write(f"sensor {s.name}: failed initialising:", str(e))
+                measurements_l.write(f"sensor {s.name}: failed initialising:", str(e))
 
 def process(measured_data):  #takes num_of_samples measurements from each sensor, makes average and sends them to the server, if there is an issue with reading, sets last index to False
     global output
-    measured_data["sensors"] = []
+    measured_data["sensordatavalues"] = []
     for s in sensors:        
         if s.use and not len(s.paths) == 0:
             for x in range(num_of_samples):
@@ -54,7 +53,7 @@ def process(measured_data):  #takes num_of_samples measurements from each sensor
                         print(v)
                     if v == None:
                         print(f"sensor {s.name}: failed reading (timeout)")
-                        l.write(f"sensor {s.name}: failed reading (timeout)")
+                        measurements_l.write(f"sensor {s.name}: failed reading (timeout)")
                     elif isinstance(v, (tuple, list)):
                         for i in range(len(v)):
                             output[x][i] = v[i]
@@ -63,7 +62,7 @@ def process(measured_data):  #takes num_of_samples measurements from each sensor
 
                 except Exception as e:
                     print(f"sensor {s.name}: failed reading:", str(e))
-                    l.write(f"sensor {s.name}: failed reading:", str(e))
+                    measurements_l.write(f"sensor {s.name}: failed reading:", str(e))
 
                     s.use = False
                     continue
@@ -77,7 +76,7 @@ def process(measured_data):  #takes num_of_samples measurements from each sensor
                 if not avg == None:
                     if measured_data.get("sensors") is None:
                         measured_data["sensors"] = []
-                    measured_data["sensors"].append({"type": path, "value": avg})
+                    measured_data["sensordatavalues"].append({"value_type": path, "value": avg})
     
     measured_data["time"] = time.time()
     return measured_data

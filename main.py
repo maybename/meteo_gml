@@ -17,7 +17,8 @@ core0_WDT = WDT(TIMEOUT)  #watchdog timer for core0
 core1_WDT = WDT(TIMEOUT)  #watchdog timer for core1
 core1_wants_restart = False  #flag if core1 crashed
 
-data = {}  #dictionary for measured data, reserving space for json data
+data = {"id":sensor_id}  #dictionary for measured data, reserving space for json data
+data_lock = _thread.allocate_lock()
 #####################################################################################
 
 def second_core():     #automaticly sends data when available, runs on second core. To use spi0, set ethernet to False
@@ -25,9 +26,9 @@ def second_core():     #automaticly sends data when available, runs on second co
     if SHOW_PRINTS & 0b10:
         print("Starting ethernet thread")
 
-    try:
+    #try:
         if ethernet:    
-            ether = EthernetThread() #inits ethernet
+            ether = EthernetThread(server, port) #inits ethernet
             if not SHOW_PRINTS & 0b10:
                 ether.enable_prints = False
         if SHOW_PRINTS & 0b10:
@@ -42,7 +43,7 @@ def second_core():     #automaticly sends data when available, runs on second co
                         sys.print_exception(e)
                         try:
                             print("Exception in ethernet: ", e)
-                            l.write("Exception in ethernet: ", e)
+                            meteo_l.write("Exception in ethernet: ", e)
                         except:
                             print("unable to write to log")
                         core1_wants_restart = True  #sets flag to restart core1
@@ -53,12 +54,13 @@ def second_core():     #automaticly sends data when available, runs on second co
             if not core0_WDT.is_alive():
                 if SHOW_PRINTS & 0b10:
                     print("core0 got stuck, restarting...")
-                l.write("core0 got stuck, restarting...")
+                meteo_l.write("core0 got stuck, restarting...")
                 #input()
                 reset()  #restarts if not alive for more than 60 seconds
             
             time.sleep(1)  #sleep to prevent high cpu usage
-    except Exception as e:
+    #except Exception as e:
+        meteo_l.write("Error on core1, setting restart flag: ", e)
         core1_wants_restart = True  #sets flag to restart core1
 
 def main_loop():
@@ -76,11 +78,12 @@ def main_loop():
             measured_timer = time.time()*1000
             if SHOW_PRINTS & 0b01:
                 print('processing')
-            process(data)   #measuring sensors, viz measuring data
-            if SHOW_PRINTS & 0b01:
-                print(data)
-            print(last_send, time.time())
-            log_measurement(data)
+            with data_lock:
+                process(data)   #measuring sensors, viz measuring data
+                if SHOW_PRINTS & 0b01:
+                    print(data)
+                print(last_send, time.time())
+                log_measurement(data)
             gc.collect()
             init_modules()
             gc.collect()
@@ -90,26 +93,25 @@ def main_loop():
 
         #WDTs
         core0_WDT.feed()  #feeds watchdog timer for core0
-        #print(core1_WDT.is_alive(), core1_wants_restart)
+        print(core1_WDT.is_alive(), core1_wants_restart)
         if not core1_WDT.is_alive() or core1_wants_restart:
             core1_wants_restart = False
             if SHOW_PRINTS & 0b10:
                 print("core1 got stuck, restarting...")
-            l.write("core1 got stuck, restarting...")
+            meteo_l.write("core1 got stuck, restarting...")
             gc.collect()
             try:
                 #pass
                 _thread.start_new_thread(second_core, ())  #restarts thread
             except Exception as e:
                 print("Error restarting second_core, restarting:", e)
-                l.write("Error restarting second_core, restarting:", str(e), "\n")
+                meteo_l.write("Error restarting second_core, restarting:", str(e), "\n")
                 #input()
                 reset()  #restarts the whole pico
         time.sleep(1)
 
 def startup():
-    global measured_timer, l
-    l = log.log("mateo-log.txt")    #setups logging    
+    global measured_timer, meteo_l 
     if not SHOW_PRINTS & 0b01:
         global sensors_prints
         sensors_prints = False
@@ -120,7 +122,7 @@ def startup():
         _thread.start_new_thread(second_core, ())  #starts loop on second core for ethernet
     except Exception as e:
         print("Error starting ethernet thread:", e)
-        l.write("Error starting ethernet thread:", str(e), "\n")
+        meteo_l.write("Error starting ethernet thread:", str(e), "\n")
         #input()
         reset()  #restarts the whole pico if error occurs
         
@@ -155,7 +157,7 @@ if __name__ == "__main__":
             led.off()
             print("global Error on main:", e)
             try:
-                l.write("global Error on main: ", str(e), "\n")
+                meteo_l.write("global Error on main: ", str(e), "\n")
             except:
                 print("failed to write into log")
             #input()

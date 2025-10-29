@@ -57,7 +57,7 @@ class PMS5003:
         return None
                 
 if __name__ == "__main__":
-    PMS=PMS5003(UART(0, baudrate=9600, tx=Pin(12), rx=Pin(13), timeout=20))
+    PMS=PMS5003(UART(1, baudrate=9600, rx=Pin(12), timeout=20))
     while True:
         print(time.ticks_ms())
         data = PMS.read()

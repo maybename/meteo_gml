@@ -1,4 +1,4 @@
-import _thread
+import _thread, log
 
 #roof
 ip = "172.20.2.190"
@@ -17,8 +17,7 @@ gw_ip = "172.20.13.254"
 
 
 #############################  config  ###################################
-
-
+#home
 ip = "192.168.68.129"
 mask = "255.255.255.0"
 gw_ip = "192.168.68.1"
@@ -35,14 +34,16 @@ MAX_DATA_FILE_SIZE = 1000000  #maximum size of data file in bytes, after it is c
 
 
 port = 80   #target port
-path = "/meteo/measurements.php" #target path
-
+path = "/meteo/data.php" #target path
+sensor_id = 1225515600
+    
+    
 num_of_samples = 5  # number of samples to take for each sensor
 
 #########################################################################
 SHOW_PRINTS = 0b11  #bitmask for prints, 1st bit for main, 2nd for ethernet
-file_lock = _thread.allocate_lock()  #lock for file access
-
+meteo_l = log.log("mateo-log.txt")    #setups logging
+measurements_l = log.log("sensors.log")
 
 
 

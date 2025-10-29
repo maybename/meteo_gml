@@ -29,7 +29,7 @@ class TCP4client:
         def __call__(self, pkt):
             if (len(self.messages) < self.max_messages and (pkt.tcp_seq_num >= self.last_seq_num or pkt.tcp_seq_num == 0) and not pkt.tcp_flags == self.last_flags):
                 if SHOW_PRINTS: 
-                   print('\t[TCPclient] Recived: Port {0} -> {1}, seq: {2}, ack: {3}, flags: {4}'.format(pkt.tcp_srcPort, pkt.tcp_dstPort, pkt.tcp_seq_num, pkt.tcp_ack_num, pkt.tcp_flags))
+                   print('\t[TCPclient] Recived: Port {0} -> {1}, seq: {2}, ack: {3}, flags: {4}, data:\n{5}'.format(pkt.tcp_srcPort, pkt.tcp_dstPort, pkt.tcp_seq_num, pkt.tcp_ack_num, pkt.tcp_flags, bytes(pkt.tcp_data)))
                 self.last_seq_num, self.last_flags = pkt.tcp_seq_num, pkt.tcp_flags
                 self._recived.append(pkt)
 
@@ -103,6 +103,7 @@ class TCP4client:
         
     def sendTCP(self, session:Session, message, flags):
             if session.tgt_ip == []:
+                print(self.known_domains, session.domain)
                 if session.domain in self.known_domains:
                     session.tgt_ip = self.known_domains[session.domain]
                 else:
@@ -277,7 +278,7 @@ if __name__ == '__main__':
 
     tcp = TCP4client(ntw, dns_client=dns_client, max_messages=10)
 
-    session1 = tcp.new_connection(tgt_port=target_port, domain="google.com")
+    session1 = tcp.new_connection(tgt_port=target_port, domain="www.google.com")
     if not type(session1) == TCP4client.Session:
         print("Failed to create TCP session", session1)
         exit(1)

@@ -13,10 +13,21 @@ def log_measurement(data):
         buffer.append(line)
 
 # Core1: consumer
-def get_entry():
+def read_last():
         with buffer_lock:
             if len(buffer) > 0:
-                line = buffer.popleft()
+                return buffer[-1], len(buffer)
+            return None, 0
+        
+def read_first():
+    with buffer_lock:
+            if len(buffer) > 0:
+                line = buffer[0]
             else:
                 line = None
-        return line
+            return line
+
+def remove(d):
+    with buffer_lock:
+        if d in buffer:
+            buffer.remove(d)

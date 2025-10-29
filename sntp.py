@@ -55,5 +55,6 @@ def main():
 actual_time = main()  # Get the actual time from SNTP client
 #actual_time = time.mktime(actual_time)  # Convert to seconds since epoch
 from machine import RTC
-RTC().datetime(actual_time)  #syncs time with NTP server
+date = actual_time[0:3] + (0,) + actual_time[3:6] + (0,)
+RTC().datetime(date)  #syncs time with NTP server
 print(time.time())
