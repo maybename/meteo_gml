@@ -26,7 +26,7 @@ def second_core():     #automaticly sends data when available, runs on second co
     if SHOW_PRINTS & 0b10:
         print("Starting ethernet thread")
 
-    #try:
+    try:
         if ethernet:    
             ether = EthernetThread(server, port) #inits ethernet
             if not SHOW_PRINTS & 0b10:
@@ -59,7 +59,7 @@ def second_core():     #automaticly sends data when available, runs on second co
                 reset()  #restarts if not alive for more than 60 seconds
             
             time.sleep(1)  #sleep to prevent high cpu usage
-    #except Exception as e:
+    except Exception as e:
         meteo_l.write("Error on core1, setting restart flag: ", e)
         core1_wants_restart = True  #sets flag to restart core1
 
@@ -67,13 +67,14 @@ def main_loop():
     global measured_timer, core1_wants_restart, data, last_send
     while True:
         led.toggle()  #toggles led to show the pico is alive
-        print("toggled led")
         if run_init_modules():    #if not done in last minute, runs init_modules
-            print("reinitializing sensors...")
+            if SHOW_PRINTS & 0b01:
+                print("reinitializing sensors...")
             init_modules()
 
         if SHOW_PRINTS & 0b01:
             print("main loop", measured_timer + INTERVAL - time.time()*1000)
+    
         if measured_timer + INTERVAL <= time.time()*1000:  #if last measurement was less than INTERVAL ago, waits
             measured_timer = time.time()*1000
             if SHOW_PRINTS & 0b01:
@@ -82,7 +83,6 @@ def main_loop():
                 process(data)   #measuring sensors, viz measuring data
                 if SHOW_PRINTS & 0b01:
                     print(data)
-                print(last_send, time.time())
                 log_measurement(data)
             gc.collect()
             init_modules()

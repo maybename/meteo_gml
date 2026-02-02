@@ -1,15 +1,15 @@
 #libraries
-from machine import Pin, I2C, UART, SPI, ADC
+#from machine import Pin, I2C, UART, SPI, ADC
 import time
 
 #sensors libraries
-from ads1x15 import ADS1115
-import bme280
-from mh_z19 import MH_Z19
-from PMS5003 import PMS5003
+#from ads1x15 import ADS1115
+#import bme280
+#from mh_z19 import MH_Z19
+#from PMS5003 import PMS5003
 
-i2c=I2C(1,sda=Pin(2), scl=Pin(3), freq=50000) #I2C
-spi0 = SPI(0, baudrate=10000000, sck=Pin(18), mosi=Pin(19), miso=Pin(16))
+#i2c=I2C(1,sda=Pin(2), scl=Pin(3), freq=50000) #I2C
+#spi0 = SPI(0, baudrate=10000000, sck=Pin(18), mosi=Pin(19), miso=Pin(16))
 
 class interrupts:
     def __init__(self) -> None:
@@ -78,11 +78,35 @@ class multiplexer:
     def set_channel(self, channel):
         for i,pin in enumerate(self.SELECT):
             pin.value(channel & 0b1 << i)    
+class Sensor:
+    def __init__(self, name: str, init_function, read_function = lambda: (), paths: tuple[str, ...] = (), limits: list[tuple[int,int]] = []):
+        self.name = name
+        self.init = init_function
+        self.read_function = read_function if callable(read_function) else lambda: ()
+        self.paths = paths
+        self.use = False
+        self.ranges = limits
+        
+    def read(self):
+        values = self.read_function()
+        if type(values) is not tuple:
+            return None
+        out = []
+        for i, value in enumerate(values):
+            if i >= len(self.ranges):
+                out.append(value)
+                continue
+            if value is None or self.ranges[i][0] < value and value < self.ranges[i][1]:
+                out.append(value)
+            else:
+                out.append(None)
+            
+        
         
 sensors = [
-            [analog_init, lambda: None, ()], #only to setup analog, to read call analog_read
-            [multiplexer_init, lambda: None, ()], #only to setup multiplexer, to read call read or analogRead
-            [PMS_init, PMS_read, ("PM1.0", "PM2.5", "PM10", "pm0.3", "pm0.5", "pm1.0","pm2.5", "pm5", "pm10")], 
-            [MHZ_init, MHZ_read, ("co2",)], 
-            [BME_init, BME_read, ("temp", "press", "hum")],            
-            ]
+            Sensor("analog", analog_init), # only to setup analog, to read call analog_read
+            Sensor("multiplexer", multiplexer_init), # only to setup multiplexer, to read call read or analogRead
+            Sensor("mhz", MHZ_init, MHZ_read, ("co2",), [(5000, 0)]), 
+            Sensor("bme", BME_init, BME_read, ("temp", "press", "hum"), [(84, -40), (300, 1100), (0, 100)]),            
+            Sensor("pms", PMS_init, PMS_read, ("PM1.0", "PM2.5", "PM10", "pm0.3", "pm0.5", "pm1.0","pm2.5", "pm5.0", "pm10")), 
+            ]   

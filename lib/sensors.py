@@ -90,17 +90,34 @@ class multiplexer:
         
         
 class Sensor:
-    def __init__(self, name: str, init_function, read_function = lambda: (), paths: tuple[str, ...] = ()):
+    def __init__(self, name: str, init_function, read_function = lambda: (), paths: tuple[str, ...] = (), limits: list[tuple[int,int]] = []):
         self.name = name
         self.init = init_function
-        self.read = read_function
+        self.read_function = read_function if callable(read_function) else lambda: ()
         self.paths = paths
         self.use = False
+        self.ranges = limits
+        
+    def read(self):
+        values = self.read_function()
+        if type(values) is not tuple:
+            return None
+        out = []
+        for i, value in enumerate(values):
+            if i >= len(self.ranges):
+                out.append(value)
+                continue
+            if value is None or self.ranges[i][0] < value and value < self.ranges[i][1]:
+                out.append(value)
+            else:
+                out.append(None)
+            
+        
         
 sensors = [
             Sensor("analog", analog_init), # only to setup analog, to read call analog_read
             Sensor("multiplexer", multiplexer_init), # only to setup multiplexer, to read call read or analogRead
-            Sensor("mhz", MHZ_init, MHZ_read, ("co2",)), 
-            Sensor("bme", BME_init, BME_read, ("temp", "press", "hum")),            
+            Sensor("mhz", MHZ_init, MHZ_read, ("co2",), [(5000, 0)]), 
+            Sensor("bme", BME_init, BME_read, ("temp", "press", "hum"), [(84, -40), (300, 1100), (0, 100)]),            
             Sensor("pms", PMS_init, PMS_read, ("PM1.0", "PM2.5", "PM10", "pm0.3", "pm0.5", "pm1.0","pm2.5", "pm5.0", "pm10")), 
             ]

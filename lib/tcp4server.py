@@ -63,12 +63,14 @@ class TCP4server:
             self.ack_num = ack_num
 
         def process(self, pkt:TCPpacket):
+                # processing / checking inputs
+            
                 try:
                     data:list[str] = bytes(pkt.data).decode().split("\r\n")
                 except:
                     if SHOW_PRINTS:
                         print("failed to decode data", pkt.data)
-                        #input()
+
                     return -1
                 for d in data:
                     d.strip()
@@ -80,33 +82,39 @@ class TCP4server:
                     return -1
 
                 method, path, http_version = request[:3]
-                headers:list[str] = []
+                headers = {}
                 http_data:str = ""
                 c = 0
                 for d in data[1:]:
                     if d == "" and c == 0:
                         c = 1
                     if c == 0:
-                        headers.append(d)
+                        name, value = d.split(": ")
+                        headers[name] = value
                     else:
                         http_data += d
                 
-                print("success")
+                # looking for page
                 
                 method = method.upper()
                 content = None
                 for p in self.tcp.HTTPpages:
                     if p.method == method and p.path == path:
                         content = p.content
-                        
+
+                # processing the correct page or sending err                        
                 if callable(content):
-                    content = content(http_version, headers, http_data, pkt.srcIP, pkt.srcPort)
-                
+                    try:
+                        content = content(http_version, headers, http_data, pkt.srcIP, pkt.srcPort)
+                    except Exception as e:
+                        return (0, generate_response(http_version=http_version, status="500 ERROR", data=f"<h1>500 Internal server error: {e} </span>"))                
                 if content == None:
                     return (0, generate_response(http_version=http_version, status="404 ERROR", data="<h1>404 Error</h1><span>page not found</span>"))
 
+                if isinstance(content, tuple) and len(content) == 3:
+                    return (content[0], generate_response(http_version=http_version, status=content[1], data=str(content[2])))   
+                 
                 return (0, generate_response(http_version=http_version, data=str(content)))
-                                
 
         def reset(self):
             self.to_send = []
@@ -158,7 +166,7 @@ class TCP4server:
             print('\t[TCPclient] Recived: Port {0} -> {1}, seq: {2}, ack: {3}, flags: {4}, data:{5}'.format(pkt.tcp_srcPort, pkt.tcp_dstPort, pkt.tcp_seq_num, pkt.tcp_ack_num, pkt.tcp_flags, bytes(pkt.tcp_data)))
         self._received.append(TCPpacket(pkt.ip_src_addr, pkt.ip_dst_addr, pkt.tcp_srcPort, pkt.tcp_dstPort, pkt.tcp_seq_num, pkt.tcp_ack_num, pkt.tcp_flags, pkt.tcp_data))
 
-    def page(self, path:str, content:str | function, method: str = "GET"):
+    def page(self, path:str, content:"str | function | Unknown" , method: str = "GET"): # pyright: ignore[reportUndefinedVariable]
         page = self.HTTPpage(path, content, method)
         for p in self.HTTPpages:    #if there is page with same method and path replace content
             if p.path == path and p.method == method:

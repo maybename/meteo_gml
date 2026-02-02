@@ -1,9 +1,10 @@
 import time, _thread
 
 class log:
-    def __init__(self, file:str) -> None:
+    def __init__(self, file:str, remember_writes = 5) -> None:
         self.lock = _thread.allocate_lock()
         self.file = file
+        self.tail = [' '*100 for i in range(remember_writes)]
         try:
             with open(self.file, "r") as f: #opens the file
                 pass
@@ -27,3 +28,11 @@ class log:
             f.write(timestamp + text + end)
         f.close()
         self.lock.release()
+        for i in range(len(self.tail) - 1):
+            self.tail[i] = self.tail[i+1]
+        
+        self.tail[-1] = timestamp + text + end
+        
+        
+    def last_writes(self) -> list[str]:
+        return self.tail

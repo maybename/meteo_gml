@@ -17,10 +17,10 @@ gw_ip = "172.20.13.254"
 
 
 #############################  config  ###################################
-#home
-ip = "192.168.68.129"
+#roof
+ip = "172.20.2.190"
 mask = "255.255.255.0"
-gw_ip = "192.168.68.1"
+gw_ip = "172.20.2.254"
 
 sntp_server = "pool.ntp.org"  # NTP server for time synchronization
 

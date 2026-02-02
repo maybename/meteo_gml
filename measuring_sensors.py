@@ -1,9 +1,10 @@
 from machine import Timer
-from sensors import *
-import log, time
+from lib.sensors import sensors
+import time
 from config import *
 
 output = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] for _ in range(num_of_samples)]  # list to store temp output from sensors
+output_sum = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 last_init = 0
 
 sensors_prints = True  #enable prints for debugging
@@ -44,21 +45,19 @@ def process(measured_data):  #takes num_of_samples measurements from each sensor
         if s.use and not len(s.paths) == 0:
             for x in range(num_of_samples):
                 try:
-                    if not callable(s.read):
-                        if sensors_prints:
-                            print(f"sensor {s.name}: function {s.read} is not callable")
-                        break
                     v = s.read()
                     if sensors_prints:
                         print(v)
                     if v == None:
                         print(f"sensor {s.name}: failed reading (timeout)")
                         measurements_l.write(f"sensor {s.name}: failed reading (timeout)")
+                        s.use = False
+                        
                     elif isinstance(v, (tuple, list)):
                         for i in range(len(v)):
-                            output[x][i] = v[i]
-                    elif isinstance(v, (int, float)) and v >= 0:
-                        output[x][0] = v
+                            if v[i] is not None:
+                                output[x][i] = v[i]
+                                output_sum[x] += 1
 
                 except Exception as e:
                     print(f"sensor {s.name}: failed reading:", str(e))
@@ -68,12 +67,12 @@ def process(measured_data):  #takes num_of_samples measurements from each sensor
                     continue
 
             for j, path in enumerate(s.paths):
-                avg = []
+                sum_values = 0
                 for o in output:
                     if j < len(o):
-                        avg.append(o[j])
-                avg = average(avg)
-                if not avg == None:
+                        sum_values += o[j]
+                if output_sum[j] > 0:
+                    avg = sum_values/output_sum[j]
                     if measured_data.get("sensordatavalues") is None:
                         measured_data["sensordatavalues"] = []
                     measured_data["sensordatavalues"].append({"value_type": path, "value": avg})
